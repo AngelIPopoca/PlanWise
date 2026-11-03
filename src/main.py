@@ -9,17 +9,11 @@ from functions import *
 def main(page: ft.Page):
     #creates starting size for window
     page.window.width, page.window.height = get_screen_size()
-
-    #this keeps the window on top of the other apps
-    page.window.framless = True
-    page.window.always_on_top = True 
     
     #get today's date
     today = date.today()
 
     task_creation = None
-
-
 
     #creates task creation menu
     def create_task_menu(task = ["", today, time(12, 0), "",[False] * 7]):
