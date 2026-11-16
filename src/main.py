@@ -10,9 +10,9 @@ def main(page: ft.Page):
     #creates starting size for window
     page.window.width, page.window.height = get_screen_size()
 
-    #this keeps the window on top of the other apps
+    #Removed the 'always on top' feature 
     page.window.framless = True
-    page.window.always_on_top = True 
+    
     
     #get today's date
     today = date.today()
