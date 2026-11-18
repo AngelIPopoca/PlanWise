@@ -1,6 +1,7 @@
 import flet as ft
 import tkinter as tk
 import json
+import os
 
 #get screen size and calculate starting window size
 def get_screen_size():
@@ -76,5 +77,6 @@ def save_task(task, name, repeated, week_row):
         [button.data for button in week_row.controls]
     ]
     str_tasks = [str(item) for item in task]
-    with open("tasks.json", "a") as json_file:
+    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tasks.json")
+    with open(json_path, "a", encoding="utf-8") as json_file:
         json.dump(str_tasks, json_file, indent=4)
