@@ -4,6 +4,7 @@ import os
 import winreg
 import sys
 import json
+import ast
 from datetime import date, time, datetime
 from functions import *
 
@@ -26,9 +27,49 @@ def main(page: ft.Page):
                 continue
         return str(time_str)
 
-    def create_task_card(task):
+    def parse_task_for_menu(raw_task):
+        task_name = str(raw_task[0]) if len(raw_task) > 0 else ""
+
+        task_date = today
+        if len(raw_task) > 1 and raw_task[1]:
+            date_str = str(raw_task[1]).strip().split(" ")[0]
+            try:
+                task_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                task_date = today
+
+        task_time = time(12, 0)
+        if len(raw_task) > 2 and raw_task[2]:
+            for fmt in ("%H:%M:%S", "%H:%M"):
+                try:
+                    task_time = datetime.strptime(str(raw_task[2]).strip(), fmt).time()
+                    break
+                except ValueError:
+                    continue
+
+        task_remind = str(raw_task[3]) if len(raw_task) > 3 and raw_task[3] not in (None, "None") else ""
+
+        task_week = [False] * 7
+        if len(raw_task) > 4:
+            if isinstance(raw_task[4], list) and len(raw_task[4]) == 7:
+                task_week = [bool(x) for x in raw_task[4]]
+            elif isinstance(raw_task[4], str):
+                try:
+                    parsed = ast.literal_eval(raw_task[4])
+                    if isinstance(parsed, list) and len(parsed) == 7:
+                        task_week = [bool(x) for x in parsed]
+                except (ValueError, SyntaxError):
+                    pass
+
+        return [task_name, task_date, task_time, task_remind, task_week]
+
+    def create_task_card(task, task_index):
         task_name = str(task[0])
         task_time = format_time(task[2]) if len(task) > 2 else ""
+
+        def handle_delete(e):
+            delete_task(task_index)
+            load_tasks()
 
         return ft.Container(
             padding=10,
@@ -64,8 +105,17 @@ def main(page: ft.Page):
                     ft.PopupMenuButton(
                         icon=ft.Icons.MORE_VERT,
                         items=[
-                            ft.PopupMenuItem(content="Reschedule task"),
-                            ft.PopupMenuItem(content="Delete Task"),
+                            ft.PopupMenuItem(
+                                content="Reschedule task",
+                                on_click=lambda e: create_task_menu(
+                                    parse_task_for_menu(task),
+                                    task_index,
+                                ),
+                            ),
+                            ft.PopupMenuItem(
+                                content = "Delete Task",
+                                on_click = handle_delete
+                            ),                   
                         ],
                     ),
                 ],
@@ -82,6 +132,7 @@ def main(page: ft.Page):
             if raw_data:
                 decoder = json.JSONDecoder()
                 idx = 0
+                task_index = 0
                 while idx < len(raw_data):
                     while idx < len(raw_data) and raw_data[idx].isspace():
                         idx += 1
@@ -91,7 +142,8 @@ def main(page: ft.Page):
                         task, next_idx = decoder.raw_decode(raw_data, idx)
                         idx = next_idx
                         if isinstance(task, list) and len(task) > 0:
-                            tasks_view.controls.append(create_task_card(task))
+                            tasks_view.controls.append(create_task_card(task, task_index))
+                            task_index+=1
                     except json.JSONDecodeError as e:
                         print(f"Error decoding task at index {idx}: {e}")
                         break
@@ -100,11 +152,16 @@ def main(page: ft.Page):
     task_creation = None
 
     #creates task creation menu
-    def create_task_menu(task = ["", today, time(12, 0), "",[False] * 7]):
+    def create_task_menu(task = None, task_index = None):
         nonlocal task_creation
-        
+        if task is None:
+            task = ["", today, time(12, 0), "",[False] * 7]
+
         def handle_save(e):
-            save_task(task, name.value, repeated.value, week_row)
+            if task_index is not None:
+                update_task(task_index, task, name.value, repeated.value, week_row)
+            else:
+                save_task(task, name.value, repeated.value, week_row)
             close_creation_menu(page, task_creation)
             load_tasks()
 
@@ -180,6 +237,7 @@ def main(page: ft.Page):
                 )
             )
         )
+        page.update()
 
     # Bottom-right resize handle for frameless window
     def on_resize(e: ft.DragUpdateEvent):
