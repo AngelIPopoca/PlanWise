@@ -4,7 +4,7 @@ import os
 import winreg
 import sys
 import json
-from datetime import date, time
+from datetime import date, time, datetime
 from functions import *
 
 def main(page: ft.Page):
@@ -16,8 +16,61 @@ def main(page: ft.Page):
     today = date.today()
 
     # Scrollable task container so the bottom resize handle stays anchored
-    tasks_view = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO)
-    
+    tasks_view = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO, spacing=8)
+
+    def format_time(time_str):
+        for fmt in ("%H:%M:%S", "%H:%M"):
+            try:
+                return datetime.strptime(str(time_str), fmt).strftime("%I:%M %p").lstrip("0")
+            except ValueError:
+                continue
+        return str(time_str)
+
+    def create_task_card(task):
+        task_name = str(task[0])
+        task_time = format_time(task[2]) if len(task) > 2 else ""
+
+        return ft.Container(
+            padding=10,
+            border=ft.Border.all(1, ft.Colors.OUTLINE),
+            border_radius=6,
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Row(
+                        spacing=10,
+                        expand=True,
+                        controls=[
+                            ft.Checkbox(),
+                            ft.Column(
+                                spacing=2,
+                                expand=True,
+                                controls=[
+                                    ft.Text(
+                                        value=task_name,
+                                        size=16,
+                                        weight=ft.FontWeight.W_500,
+                                    ),
+                                    ft.Text(
+                                        value=task_time,
+                                        size=12,
+                                        color=ft.Colors.ON_SURFACE_VARIANT,
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                    ft.PopupMenuButton(
+                        icon=ft.Icons.MORE_VERT,
+                        items=[
+                            ft.PopupMenuItem(content="Reschedule task"),
+                            ft.PopupMenuItem(content="Delete Task"),
+                        ],
+                    ),
+                ],
+            ),
+        )
     def load_tasks():
         tasks_view.controls.clear()
         json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tasks.json")
@@ -38,7 +91,7 @@ def main(page: ft.Page):
                         task, next_idx = decoder.raw_decode(raw_data, idx)
                         idx = next_idx
                         if isinstance(task, list) and len(task) > 0:
-                            tasks_view.controls.append(ft.Checkbox(label=str(task[0])))
+                            tasks_view.controls.append(create_task_card(task))
                     except json.JSONDecodeError as e:
                         print(f"Error decoding task at index {idx}: {e}")
                         break
